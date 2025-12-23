@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChecklistTech PRO</title>
+
+<!-- FONTES -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+<!-- LIBS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<meta name="theme-color" content="#dc2626">
+
+<style>
+:root {
+  --bg:#f4f4f4;
+  --card:#ffffff;
+  --text:#1f2937;
+  --accent:#dc2626;
+}
+.dark {
+  --bg:#020617;
+  --card:#020617;
+  --text:#e5e7eb;
+  --accent:#ef4444;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;padding:20px;
+  font-family:Inter,sans-serif;
+  background:var(--bg);color:var(--text)
+}
+.container{
+  max-width:920px;margin:auto;
+  background:var(--card);padding:22px;
+  border-radius:14px
+}
+header{
+  display:flex;justify-content:space-between;align-items:center
+}
+.card{
+  background:var(--bg);
+  padding:16px;border-radius:12px;margin-top:18px
+}
+label{font-weight:600;margin-top:10px;display:block}
+input,textarea{
+  width:100%;padding:10px;border-radius:8px;
+  border:1px solid #cbd5e1;margin-top:4px
+}
+textarea{resize:vertical}
+button{
+  width:100%;padding:14px;margin-top:16px;
+  border:none;border-radius:10px;
+  font-size:16px;background:var(--accent);
+  color:#fff;cursor:pointer
+}
+.secondary{
+  background:none;border:1px solid var(--accent);
+  color:var(--accent)
+}
+.preview{
+  width:100%;max-height:220px;object-fit:contain;
+  border-radius:10px;margin-top:10px
+}
+.check{margin:6px 0}
+.signature{
+  border:2px dashed #94a3b8;height:140px;margin-top:10px
+}
+.total{font-size:22px;font-weight:700}
+.history-item{
+  border:1px solid #cbd5e1;padding:10px;
+  border-radius:8px;margin-bottom:8px
+}
+.error{color:#ef4444;margin-top:10px}
+</style>
+</head>
+
+<body>
+
+<div class="container" id="pdfArea">
+
+<header>
+  <h1>ChecklistTech PRO</h1>
+  <button class="secondary" onclick="toggleTheme()">🌗 Tema</button>
+</header>
+
+<!-- LOGO -->
+<div class="card">
+  <label>Logomarca da Assistência *</label>
+  <input type="file" id="logoInput" accept="image/*">
+  <img id="logoPreview" class="preview" style="display:none">
+</div>
+
+<!-- OS -->
+<div class="card">
+  <label>Número da OS *</label>
+  <input id="os">
+  <div id="qrcode" style="margin-top:10px"></div>
+</div>
+
+<!-- CLIENTE -->
+<div class="card">
+  <label>Cliente *</label>
+  <input id="cliente">
+  <label>Telefone *</label>
+  <input id="telefone">
+  <label>Aparelho *</label>
+  <input id="aparelho">
+</div>
+
+<!-- TÉCNICO -->
+<div class="card">
+  <label>Técnico Responsável *</label>
+  <input id="tecnico">
+</div>
+
+<!-- DIAGNÓSTICO -->
+<div class="card">
+  <label>Defeito informado *</label>
+  <textarea id="defeito"></textarea>
+  <label>Serviço realizado *</label>
+  <textarea id="servico"></textarea>
+</div>
+
+<!-- CHECKLIST -->
+<div class="card">
+  <label>Checklist Técnico</label>
+  <div class="check"><input type="checkbox"> Liga normalmente</div>
+  <div class="check"><input type="checkbox"> Tela OK</div>
+  <div class="check"><input type="checkbox"> Bateria OK</div>
+  <div class="check"><input type="checkbox"> Conectores OK</div>
+  <div class="check"><input type="checkbox"> Sem oxidação</div>
+</div>
+
+<!-- FOTO -->
+<div class="card">
+  <label>Foto do Aparelho</label>
+  <input type="file" id="fotoInput" accept="image/*">
+  <img id="fotoPreview" class="preview" style="display:none">
+</div>
+
+<!-- ASSINATURA -->
+<div class="card">
+  <label>Assinatura do Cliente</label>
+  <canvas id="sign" class="signature"></canvas>
+  <button class="secondary" onclick="clearSign()">Limpar assinatura</button>
+</div>
+
+<!-- FINANCEIRO -->
+<div class="card">
+  <h3>💰 Orçamento</h3>
+  <label>Mão de obra (R$)</label>
+  <input type="number" id="maoObra" value="0" oninput="calcTotal()">
+  <label>Peças (R$)</label>
+  <input type="number" id="pecas" value="0" oninput="calcTotal()">
+  <label>Desconto (R$)</label>
+  <input type="number" id="desconto" value="0" oninput="calcTotal()">
+  <div class="total">Total: R$ <span id="total">0.00</span></div>
+</div>
+
+<div id="msg" class="error"></div>
+</div>
+
+<button onclick="salvarOS()">💾 Salvar OS</button>
+<button onclick="gerarPDF()">📄 Gerar PDF</button>
+
+<!-- HISTÓRICO -->
+<div class="container" style="margin-top:30px">
+  <h2>🧾 Histórico de Ordens</h2>
+  <div id="historico"></div>
+</div>
+
+<script>
+/* ===== TEMA ===== */
+function toggleTheme(){document.body.classList.toggle("dark")}
+
+/* ===== PREVIEW ===== */
+function preview(i,p){i.onchange=e=>{const f=e.target.files[0];if(!f)return;p.src=URL.createObjectURL(f);p.style.display="block"}}
+preview(logoInput,logoPreview); preview(fotoInput,fotoPreview);
+
+/* ===== QR ===== */
+os.oninput=()=>{qrcode.innerHTML="";if(os.value)new QRCode(qrcode,os.value)}
+
+/* ===== ASSINATURA ===== */
+const c=sign,ctx=c.getContext("2d");
+c.width=c.offsetWidth;c.height=c.offsetHeight;
+let d=false;
+c.onmousedown=e=>{d=true;ctx.beginPath();ctx.moveTo(e.offsetX,e.offsetY)}
+c.onmousemove=e=>{if(d){ctx.lineTo(e.offsetX,e.offsetY);ctx.stroke()}}
+c.onmouseup=()=>d=false;
+function clearSign(){ctx.clearRect(0,0,c.width,c.height)}
+
+/* ===== TOTAL ===== */
+function calcTotal(){
+  const t=(+maoObra.value||0)+(+pecas.value||0)-(+desconto.value||0);
+  total.innerText=Math.max(0,t).toFixed(2);
+}
+
+/* ===== SALVAR OS ===== */
+function salvarOS(){
+  const req=["os","cliente","telefone","aparelho","tecnico","defeito","servico"];
+  for(let r of req){if(!document.getElementById(r).value){msg.innerText="Preencha todos os campos obrigatórios";return}}
+  msg.innerText="";
+  const o={os:os.value,cliente:cliente.value,aparelho:aparelho.value,total:total.innerText,data:new Date().toLocaleString()};
+  const h=JSON.parse(localStorage.getItem("historicoOS")||"[]");
+  h.push(o); localStorage.setItem("historicoOS",JSON.stringify(h));
+  carregarHistorico(); alert("OS salva!");
+}
+
+/* ===== HISTÓRICO ===== */
+function carregarHistorico(){
+  const h=JSON.parse(localStorage.getItem("historicoOS")||"[]");
+  historico.innerHTML="";
+  h.forEach(o=>{
+    historico.innerHTML+=`
+      <div class="history-item">
+        <strong>OS:</strong> ${o.os}<br>
+        <strong>Cliente:</strong> ${o.cliente}<br>
+        <strong>Aparelho:</strong> ${o.aparelho}<br>
+        <strong>Total:</strong> R$ ${o.total}<br>
+        <small>${o.data}</small>
+      </div>`;
+  })
+}
+carregarHistorico();
+
+/* ===== PDF ===== */
+async function gerarPDF(){
+  const {jsPDF}=window.jspdf;
+  const pdf=new jsPDF("p","pt","a4");
+  const canvas=await html2canvas(pdfArea,{scale:2});
+  const img=canvas.toDataURL("image/png");
+  pdf.addImage(img,"PNG",0,0,595,canvas.height*595/canvas.width);
+  pdf.save("OS_"+os.value+".pdf");
+}
+
+/* ===== PWA (INLINE) ===== */
+if("serviceWorker"in navigator){
+  const swCode=`
+    const CACHE="checklisttech-pwa-v1";
+    self.addEventListener("install",e=>{
+      e.waitUntil(caches.open(CACHE).then(c=>c.addAll(["./"])));
+      self.skipWaiting();
+    });
+    self.addEventListener("fetch",e=>{
+      e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));
+    });
+  `;
+  const blob=new Blob([swCode],{type:"text/javascript"});
+  navigator.serviceWorker.register(URL.createObjectURL(blob));
+}
+</script>
+
+</body>
+</html>
